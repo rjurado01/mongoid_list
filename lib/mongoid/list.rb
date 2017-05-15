@@ -2,7 +2,7 @@ module Mongoid
   module List
     module ClassMethods
       ##
-      # Returns
+      # Returns defined list fields
       #
       def mongoid_list_fields
         instance_variable_get :@mongoid_list_fields
@@ -18,11 +18,27 @@ module Mongoid
     end
 
     ##
-    # Returns scope for list field
+    # Returns scope for field list
     #
     def list_scope(field)
       scope_field = self.class.mongoid_list_fields[field][:scope]
       scope_field ? self.class.where(scope_field => self[scope_field]) : self.class.all
+    end
+
+    ##
+    # Returns scope for previous field list
+    #
+    def list_scope_was(field)
+      scope_field = self.class.mongoid_list_fields[field][:scope]
+      scope_field ? self.class.where(scope_field => self["#{scope_field}_was"]) : self.class.all
+    end
+
+    ##
+    # Returns if list scope field has changed
+    #
+    def list_scope_changed?(field)
+      scope_field = self.class.mongoid_list_fields[field][:scope]
+      scope_field && self["#{scope_field}_changed?"]
     end
 
     ##
@@ -42,6 +58,12 @@ module Mongoid
         index += 1 if index == self[field] && persisted?
         document.set(field => index)
         index += 1
+      end
+
+      if list_scope_changed?(field)
+        list_scope_was(field).order_by(field => 'asc').each_with_index do |document, index|
+          document.set(field => index + 1)
+        end
       end
     end
 
